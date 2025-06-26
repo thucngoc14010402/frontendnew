@@ -7,6 +7,8 @@ function Login() {
   const [forgotMode, setForgotMode] = useState(false);
   const [resetCode, setResetCode] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -31,12 +33,12 @@ function Login() {
       const response = await axios.post('http://localhost:8081/api/v1/members/forgot-password', { phoneNumber: formData.phoneNumber });
       let newResetCode = '';
       if (response.data && typeof response.data === 'string') {
-        newResetCode = response.data.trim(); // Chỉ trim nếu là chuỗi
+        newResetCode = response.data.trim();
       } else if (response.data) {
-        newResetCode = String(response.data).trim(); // Chuyển đổi thành chuỗi nếu có giá trị
+        newResetCode = String(response.data).trim();
       }
       setResetCode(newResetCode);
-      console.log('Received reset code:', newResetCode); // Debug
+      console.log('Received reset code:', newResetCode);
       if (newResetCode) {
         setError(`Mã xác nhận đã được tạo: ${newResetCode}. Vui lòng nhập mã để tiếp tục.`);
       } else {
@@ -49,11 +51,34 @@ function Login() {
   };
 
   const handleVerify = () => {
-    console.log('Verify code:', verifyCode, 'Reset code:', resetCode); // Debug
+    console.log('Verify code:', verifyCode, 'Reset code:', resetCode);
     if (verifyCode && resetCode && typeof resetCode === 'string' && verifyCode.trim() === resetCode.trim()) {
-      setError('Xác nhận thành công! Vui lòng đặt lại mật khẩu (chưa triển khai).');
+      setError('Xác nhận mã thành công! Vui lòng đặt mật khẩu mới.');
     } else {
       setError('Mã xác nhận không đúng! Vui lòng kiểm tra lại hoặc yêu cầu mã mới.');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (newPassword !== confirmPassword) {
+      setError('Mật khẩu mới và xác nhận không khớp!');
+      return;
+    }
+    try {
+      await axios.post('http://localhost:8081/api/v1/members/reset-password', {
+        phoneNumber: formData.phoneNumber,
+        resetCode: resetCode,
+        newPassword: newPassword,
+      });
+      setError('Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.');
+      setForgotMode(false); // Quay lại chế độ đăng nhập
+      setResetCode('');
+      setVerifyCode('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      console.error("Reset password error:", error.response ? error.response.data : error.message);
+      setError("Đặt lại mật khẩu thất bại! Kiểm tra mã hoặc console.");
     }
   };
 
@@ -87,28 +112,60 @@ function Login() {
             />
           </div>
         )}
-        {forgotMode && resetCode && (
-          <div className="mb-3">
-            <label className="form-label">Mã Xác Nhận *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={verifyCode}
-              onChange={(e) => setVerifyCode(e.target.value)}
-              required
-            />
-            <button type="button" className="btn btn-secondary mt-2 w-100" onClick={handleVerify}>Xác Nhận Mã</button>
+        {forgotMode && (
+          <div>
+            {!resetCode && (
+              <button type="submit" className="btn btn-warning w-100 mb-3">Gửi Mã Xác Nhận</button>
+            )}
+            {resetCode && !verifyCode && (
+              <div className="mb-3">
+                <label className="form-label">Mã Xác Nhận *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value)}
+                  required
+                />
+                <button type="button" className="btn btn-secondary mt-2 w-100" onClick={handleVerify}>Xác Nhận Mã</button>
+              </div>
+            )}
+            {resetCode && verifyCode && verifyCode.trim() === resetCode.trim() && (
+              <div>
+                <div className="mb-3">
+                  <label className="form-label">Mật Khẩu Mới *</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Xác Nhận Mật Khẩu *</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="button" className="btn btn-success w-100 mb-3" onClick={handleResetPassword}>Đặt Lại Mật Khẩu</button>
+              </div>
+            )}
+            {error && <div className={resetCode && !error.includes('thất bại') ? 'alert alert-success' : 'alert alert-danger'}>{error}</div>}
           </div>
         )}
-        {error && <div className={resetCode && !error.includes('thất bại') ? 'alert alert-success' : 'alert alert-danger'}>{error}</div>}
-        <button type="submit" className="btn btn-warning w-100 mb-3">
-          {forgotMode ? 'Gửi Mã Xác Nhận' : 'Đăng Nhập'}
-        </button>
+        {!forgotMode && (
+          <button type="submit" className="btn btn-warning w-100 mb-3">Đăng Nhập</button>
+        )}
         <p className="text-center">
           {forgotMode ? (
-            <a href="#" onClick={() => { setForgotMode(false); setError(''); setResetCode(''); setVerifyCode(''); }}>Quay lại Đăng Nhập</a>
+            <a href="#" onClick={() => { setForgotMode(false); setError(''); setResetCode(''); setVerifyCode(''); setNewPassword(''); setConfirmPassword(''); }}>Quay lại Đăng Nhập</a>
           ) : (
-            <a href="#" onClick={() => { setForgotMode(true); setError(''); setResetCode(''); setVerifyCode(''); }}>Quên Mật Khẩu?</a>
+            <a href="#" onClick={() => { setForgotMode(true); setError(''); setResetCode(''); setVerifyCode(''); setNewPassword(''); setConfirmPassword(''); }}>Quên Mật Khẩu?</a>
           )}
         </p>
         <p className="text-center">
